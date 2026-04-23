@@ -24,14 +24,13 @@ jobs:
       - name: Install Pynini and Build Tools
         shell: bash -l {0}
         run: |
-          conda install -y pynini delvewheel pip setuptools wheel
+          conda install -y pynini delvewheel pip wheel
 
-      - name: Build Wheel from Conda Environment
+      - name: Repack Conda Pynini as Wheel (no compilation)
         shell: bash -l {0}
         run: |
-          mkdir -p dist
-          # Build from source using conda-provided openfst libs
-          pip wheel pynini --no-deps --no-binary pynini -w dist/
+          # Use conda's prebuilt pynini binaries - no MSVC/GCC compilation needed
+          python repack_wheel.py
 
       - name: Repair Wheel with Delvewheel
         shell: bash -l {0}
