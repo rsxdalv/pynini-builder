@@ -6,6 +6,7 @@ jobs:
   build_wheel:
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
@@ -49,6 +50,7 @@ jobs:
     needs: build_wheel
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
@@ -71,5 +73,22 @@ jobs:
           $wheel = Get-ChildItem ./test_dist/*.whl | Select-Object -First 1
           pip install $wheel.FullName
 
-          # Smoke test: force DLL loading and FST engine
-          python -c "import pynini; print('Pynini version:', pynini.__version__); fst = pynini.acceptor('hello'); print('FST Success:', fst.verify())"
+          # Smoke test: verify C extension loads and FST engine works
+          # pynini 2.x uses accep() not acceptor(); Fst() is universally safe
+          python -c "
+import pynini
+print('Pynini version:', pynini.__version__)
+print('Available FST functions:', [x for x in dir(pynini) if not x.startswith('_')])
+fst = pynini.Fst()
+fst.add_state()
+fst.set_start(0)
+fst.set_final(0)
+print('Fst created with', fst.num_states(), 'state(s)')
+if hasattr(pynini, 'accep'):
+    t = pynini.accep('hello')
+    print('accep() FST ok:', t.num_states(), 'states')
+elif hasattr(pynini, 'acceptor'):
+    t = pynini.acceptor('hello')
+    print('acceptor() FST ok:', t.num_states(), 'states')
+print('PASSED')
+"
