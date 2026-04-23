@@ -1,0 +1,76 @@
+name: Build Standalone Windows Pynini Wheel
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build_wheel:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install Pynini and Build Tools
+        shell: bash -l {0}
+        run: |
+          conda install -y pynini delvewheel pip setuptools wheel
+
+      - name: Build Wheel from Conda Environment
+        shell: bash -l {0}
+        run: |
+          mkdir -p dist
+          # Build from source using conda-provided openfst libs
+          pip wheel pynini --no-deps --no-binary pynini -w dist/
+
+      - name: Repair Wheel with Delvewheel
+        shell: bash -l {0}
+        run: |
+          # $CONDA_PREFIX points to the active env where fst DLLs live
+          DLL_PATH="$CONDA_PREFIX/Library/bin"
+          delvewheel repair dist/*.whl --add-path "$DLL_PATH" -w wheelhouse/
+
+      - name: Upload Wheel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pynini-standalone-win-py${{ matrix.python-version }}
+          path: wheelhouse/*.whl
+
+  verify_wheel:
+    needs: build_wheel
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Download Built Wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: pynini-standalone-win-py${{ matrix.python-version }}
+          path: ./test_dist
+
+      - name: Set up Standard Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install and Test Wheel
+        shell: pwsh
+        run: |
+          # Install the repaired standalone wheel
+          $wheel = Get-ChildItem ./test_dist/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+
+          # Smoke test: force DLL loading and FST engine
+          python -c "import pynini; print('Pynini version:', pynini.__version__); fst = pynini.acceptor('hello'); print('FST Success:', fst.verify())"
