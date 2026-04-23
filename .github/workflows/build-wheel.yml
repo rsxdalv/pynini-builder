@@ -9,6 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+        pynini-version: ["2.1.6", "2.1.7"]
 
     steps:
       - name: Checkout Repository
@@ -25,7 +26,7 @@ jobs:
       - name: Install Pynini and Build Tools
         shell: bash -l {0}
         run: |
-          conda install -y pynini delvewheel pip wheel
+          conda install -y "pynini==${{ matrix.pynini-version }}" delvewheel pip wheel
 
       - name: Repack Conda Pynini as Wheel (no compilation)
         shell: bash -l {0}
@@ -43,7 +44,7 @@ jobs:
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pynini-standalone-win-py${{ matrix.python-version }}
+          name: pynini-${{ matrix.pynini-version }}-win-py${{ matrix.python-version }}
           path: wheelhouse/*.whl
 
   verify_wheel:
@@ -53,12 +54,13 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+        pynini-version: ["2.1.6", "2.1.7"]
 
     steps:
       - name: Download Built Wheel
         uses: actions/download-artifact@v4
         with:
-          name: pynini-standalone-win-py${{ matrix.python-version }}
+          name: pynini-${{ matrix.pynini-version }}-win-py${{ matrix.python-version }}
           path: ./test_dist
 
       - name: Set up Standard Python
