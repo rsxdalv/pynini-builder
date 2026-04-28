@@ -78,3 +78,31 @@ jobs:
           # Smoke test: verify C extension loads and FST engine works
           # Uses Fst() which is core C extension API, universally available across pynini 2.x
           python -c "import pynini; print('version:', pynini.__version__); f = pynini.Fst(); f.add_state(); f.set_start(0); f.set_final(0); print('attributes:', [x for x in dir(pynini) if not x.startswith('_')][:10]); t = pynini.accep('hello') if hasattr(pynini, 'accep') else pynini.acceptor('hello') if hasattr(pynini, 'acceptor') else f; print('PASSED')"
+
+  release:
+    needs: verify_wheel
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        pynini-version: ["2.1.6", "2.1.7"]
+
+    steps:
+      - name: Download all wheels for pynini ${{ matrix.pynini-version }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pynini-${{ matrix.pynini-version }}-win-py*
+          path: release_wheels
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ matrix.pynini-version }}
+          name: pynini ${{ matrix.pynini-version }} Windows Wheels
+          files: release_wheels/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
